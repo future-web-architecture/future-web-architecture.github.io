@@ -19,7 +19,7 @@ class Menhera
             return myWindow[GLOBAL_NAME];
         }
         
-        Reflect.defineProperty(this, 'window', myWindow);
+        Reflect.defineProperty(this, 'window', {value: myWindow});
         Reflect.defineProperty(this, 'PLATFORM_UUID', {value: PLATFORM_UUID});
         Reflect.defineProperty(this, 'Menhera', {value: Menhera});
         Reflect.defineProperty(this, 'id', {value: UUID()});
