@@ -7,6 +7,7 @@ const STORAGE_PREFIX = 'menhera.';
 const listenerMap = new WeakMap;
 
 const getBroadcastId = topic => STORAGE_PREFIX + 'broadcast.' + topic;
+const states = new WeakMap;
 
 class Menhera
 {
@@ -21,11 +22,28 @@ class Menhera
             return myWindow[GLOBAL_NAME];
         }
         
+        /** @member {Window} window */
         Reflect.defineProperty(this, 'window', {value: myWindow});
+
+        /**
+         * @member {string} PLATFORM_UUID
+         * @const
+         */
         Reflect.defineProperty(this, 'PLATFORM_UUID', {value: PLATFORM_UUID});
+
+        /** @member {function} Menhera */
         Reflect.defineProperty(this, 'Menhera', {value: Menhera});
-        Reflect.defineProperty(this, 'id', {value: UUID()});
+
+        /** @member {string} windowId */
+        Reflect.defineProperty(this, 'windowId', {value: UUID()});
+
+        /** @member {number} createdTimestamp */
+        Reflect.defineProperty(this, 'createdTimestamp', {value: +new Date});
+
         Reflect.defineProperty(this.window, GLOBAL_NAME, {value: this});
+
+        const state = Object.create(null);
+        states.set(this, state);
 
         let sessionId;
         try {
@@ -36,6 +54,58 @@ class Menhera
             sessionId = UUID();
         }
         Reflect.defineProperty(this, 'sessionId', {value: sessionId});
+
+        let deviceId;
+        try {
+            const DEVICE_KEY = STORAGE_PREFIX + 'device.id';
+            deviceId = this.window.localStorage.getItem(DEVICE_KEY) || UUID();
+            this.window.localStorage.setItem(DEVICE_KEY, deviceId);
+        } catch (error) {
+            deviceId = UUID();
+        }
+        Reflect.defineProperty(this, 'deviceId', {value: deviceId});
+
+        const sendPing = () => this.broadcastMessage('menhera.ping', {
+            windowId: this.windowId,
+            createdTimestamp: this.createdTimestamp,
+        });
+        this.window.setInterval(sendPing, 1000);
+        sendPing();
+
+        state.seenWindows = new Map;
+        state.lastPing = 0;
+        this.addBroadcastListener('menhera.ping', ({windowId}) => {
+            if (this.windowId == windowId) return;
+            state.seenWindows.set(windowId, time);
+            const time = this.getTime();
+            if (1000 > time - state.lastPing) return;
+            state.lastPing = time;
+            for (const [id, timestamp] of state.seenWindows) {
+                if (2000 < time - timestamp) {
+                    state.seenWindows.delete(id);
+                }
+            }
+        });
+
+        this.window.addEventListener('unload', ev => {
+            const time = +new Date;
+            this.broadcastMessage('menhera.unload', {
+                windowId: this.windowId,
+                age: time - this.createdTimestamp,
+            });
+        });
+
+        this.addBroadcastListener('menhera.unload', ({windowId}) => {
+            state.seenWindows.delete(windowId);
+        })
+    }
+
+    /**
+     * @returns {number} Current timestamp in milliseconds.
+     */
+    getTime()
+    {
+        return +new Date;
     }
 
     broadcastMessage(topic, data)
@@ -96,4 +166,6 @@ class Menhera
     }
 }
 
-new Menhera(window);
+const menhera = new Menhera(window);
+
+setInterval(() => menhera.broadcastMessage('ping', {windowId}))
