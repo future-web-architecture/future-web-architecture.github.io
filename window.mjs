@@ -48,7 +48,7 @@ class Menhera
         const key = BROADCAST_STORAGE_PREFIX + topic;
         const eventListener = ev => {
             if (ev.key != key) return;
-            listener(JSON.parse(ev.newValue));
+            Promise.resolve(void 0).then(() => void listener(JSON.parse(ev.newValue)));
         }
         this.window.addEventListener('storage', eventListener);
         if (!listenerMap.has(listener)) {
