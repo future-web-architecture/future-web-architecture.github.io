@@ -167,5 +167,3 @@ class Menhera
 }
 
 const menhera = new Menhera(window);
-
-setInterval(() => menhera.broadcastMessage('ping', {windowId}))
