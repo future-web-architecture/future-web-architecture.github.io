@@ -76,8 +76,8 @@ class Menhera
         state.lastPing = 0;
         this.addBroadcastListener('menhera.ping', ({windowId}) => {
             if (this.windowId == windowId) return;
-            state.seenWindows.set(windowId, time);
             const time = this.getTime();
+            state.seenWindows.set(windowId, time);
             if (1000 > time - state.lastPing) return;
             state.lastPing = time;
             for (const [id, timestamp] of state.seenWindows) {
