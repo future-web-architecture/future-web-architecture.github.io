@@ -108,10 +108,17 @@ class Menhera
         return +new Date;
     }
 
-    broadcastMessage(topic, data)
+    broadcastMessage(aTopic, aData)
     {
+        const topic = String(aTopic);
+        const data = aData;
         const key = getBroadcastId(topic);
-        const value = JSON.stringify(data);
+        const value = JSON.stringify({
+            topic,
+            time: this.getTime(),
+            windowId: this.windowId,
+            data,
+        });
         this.window.localStorage.setItem(key, value);
 
         // StorageEvent does not fire for the current window, so we fire one

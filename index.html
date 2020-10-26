@@ -8,5 +8,24 @@
 </head>
 <body>
     <h1>Future Web Architecture Demo</h1>
+    <p>This window's ID: <span id='windowId'></span></p>
+    <ul id='console'></ul>
+    <label>Message: <input type='text' id='msgbox'/></label>
+    <button id='send'>Send</button>
+    <script type='module'>
+        const msgbox = document.querySelector('#msgbox');
+        const received = document.querySelector('#console');
+        const send = document.querySelector('#send');
+        document.querySelector('#windowId').append(menhera.windowId);
+        menhera.addBroadcastListener('testmsg', msg => {
+            const li = received.appendChild(document.createElement('li'));
+            li.append('Message received from ' + msg.windowId + ': ' + JSON.stringify(msg.data) + ' @' + msg.time);
+        });
+        send.addEventListener('click', ev => {
+            const data = msgbox.value;
+            msgbox.value = '';
+            menhera.broadcastMessage('testmsg', data);
+        });
+    </script>
 </body>
 </html>
