@@ -1,5 +1,6 @@
 
 import '/lib/uuid.js';
+import '/lib/states.js';
 
 const GLOBAL_NAME = 'menhera';
 const PLATFORM_UUID = '9001f27a-ff53-4ef9-989f-27446b545b06';
@@ -7,7 +8,7 @@ const STORAGE_PREFIX = 'menhera.';
 const listenerMap = new WeakMap;
 
 const getBroadcastId = topic => STORAGE_PREFIX + 'broadcast.' + topic;
-const states = new WeakMap;
+const getState = new StateStore;
 
 class Menhera
 {
@@ -37,13 +38,13 @@ class Menhera
         /** @member {string} windowId */
         Reflect.defineProperty(this, 'windowId', {value: UUID()});
 
-        /** @member {number} createdTimestamp */
-        Reflect.defineProperty(this, 'createdTimestamp', {value: +new Date});
+        /** @member {number} windowCreatedTime */
+        Reflect.defineProperty(this, 'windowCreatedTime', {value: +new Date});
 
         Reflect.defineProperty(this.window, GLOBAL_NAME, {value: this});
 
-        const state = Object.create(null);
-        states.set(this, state);
+        const state = getState(this);
+        state.broadcastListenerMap = new WeakMap;
 
         let sessionId;
         try {
@@ -65,10 +66,7 @@ class Menhera
         }
         Reflect.defineProperty(this, 'deviceId', {value: deviceId});
 
-        const sendPing = () => this.broadcastMessage('menhera.ping', {
-            windowId: this.windowId,
-            createdTimestamp: this.createdTimestamp,
-        });
+        const sendPing = () => this.broadcastMessage('menhera.ping', null);
         this.window.setInterval(sendPing, 1000);
         sendPing();
 
@@ -88,16 +86,12 @@ class Menhera
         });
 
         this.window.addEventListener('unload', ev => {
-            const time = +new Date;
-            this.broadcastMessage('menhera.unload', {
-                windowId: this.windowId,
-                age: time - this.createdTimestamp,
-            });
+            this.broadcastMessage('menhera.unload', null);
         });
 
         this.addBroadcastListener('menhera.unload', ({windowId}) => {
             state.seenWindows.delete(windowId);
-        })
+        });
     }
 
     /**
@@ -117,6 +111,7 @@ class Menhera
             topic,
             time: this.getTime(),
             windowId: this.windowId,
+            windowCreatedTime: this.windowCreatedTime,
             data,
         });
         this.window.localStorage.setItem(key, value);
@@ -134,23 +129,33 @@ class Menhera
         if ('function' != typeof listener) {
             throw new TypeError('Not a function');
         }
+        const state = getState(this);
+        if (!state.broadcastListenerMap.has(listener)) {
+            state.broadcastListenerMap.set(listener, Object.create(null));
+        }
+        const listeners = state.broadcastListenerMap.get(listener);
         const key = getBroadcastId(topic);
+        if (listeners[key]) {
+            return;
+        }
         const eventListener = ev => {
             if (ev.key != key) return;
-            Promise.resolve(void 0).then(() => void listener(JSON.parse(ev.newValue)));
+            Promise.resolve(void 0)
+            .then(() => void listener(JSON.parse(ev.newValue)))
+            .catch(e => console.error(e));
         }
+        listeners[key] = eventListener;
         this.window.addEventListener('storage', eventListener);
-        if (!listenerMap.has(listener)) {
-            listenerMap.set(listener, Object.create(null));
-        }
-        listenerMap.get(listener)[key] = eventListener;
     }
 
     removeBroadcastListener(topic, listener)
     {
-        if (!listenerMap.has(listener)) return;
+        const state = getState(this);
+        if (!state.broadcastListenerMap.has(listener)) return;
         const key = getBroadcastId(topic);
-        this.window.removeEventListener('storage', listenerMap.get(listener)[key]);
+        const listeners = state.broadcastListenerMap.get(listener);
+        if (!listeners[key]) return;
+        this.window.removeEventListener('storage', listeners[key]);
     }
 
     get [Symbol.toStringTag]()
