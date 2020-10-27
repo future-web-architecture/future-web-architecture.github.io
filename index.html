@@ -26,7 +26,7 @@
             li.append('Message received from ' + msg.windowId + ': ' + JSON.stringify(msg.data) + ' @' + msg.time);
         });
         menhera.addBroadcastListener('menhera.unload', msg => {
-            printMsg('Unloaded: ' + msg.windowId + ' (age=' + (msg.time - msg.windowCreatedAt) + ')');
+            printMsg('Unloaded: ' + msg.windowId + ' (age=' + (msg.time - msg.windowCreatedTime) + ')');
         });
         send.addEventListener('click', ev => {
             const data = msgbox.value;
