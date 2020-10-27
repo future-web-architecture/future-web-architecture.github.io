@@ -8,6 +8,8 @@
 </head>
 <body>
     <h1>Future Web Architecture Demo</h1>
+    <p>Device ID: <span id='deviceId'></span></p>
+    <p>Session ID: <span id='sessionId'></span></p>
     <p>This window's ID: <span id='windowId'></span></p>
     <ul id='console'></ul>
     <label>Message: <input type='text' id='msgbox'/></label>
@@ -17,13 +19,14 @@
         const received = document.querySelector('#console');
         const send = document.querySelector('#send');
         document.querySelector('#windowId').append(menhera.windowId);
+        document.querySelector('#sessionId').append(menhera.sessionId);
+        document.querySelector('#deviceId').append(menhera.deviceId);
         const printMsg = msg => {
             const li = received.appendChild(document.createElement('li'));
             li.append(msg);
         };
         menhera.addBroadcastListener('testmsg', msg => {
-            const li = received.appendChild(document.createElement('li'));
-            li.append('Message received from ' + msg.windowId + ': ' + JSON.stringify(msg.data) + ' @' + msg.time);
+            printMsg('Message received from ' + msg.windowId + ': ' + JSON.stringify(msg.data) + ' @' + msg.time);
         });
         menhera.addBroadcastListener('menhera.unload', msg => {
             printMsg('Unloaded: ' + msg.windowId + ' (age=' + (msg.time - msg.windowCreatedTime) + ')');
