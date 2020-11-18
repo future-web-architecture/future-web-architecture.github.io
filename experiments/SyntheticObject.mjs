@@ -1,237 +1,294 @@
 
-/* BEGIN PRIVATE SYMBOLS */
 
-/**
- * @private
- * @returns {object} New empty object with no [[Prototype]].
- */
-const _voidObject = () => Object.create(null);
+const _Call = Symbol('[[Call]]');
+const _Construct = Symbol('[[Construct]]');
 
-/**
- * @private
- * @returns {() => void} New empty function with no action.
- */
-const _voidFunction = () => (function(){}); // removed spaces for the minimal length
+const ExtensibleFunction = class ExtensibleFunction extends Function
+{
+    static get Call() {return _Call}
+    static get Construct() {return _Construct}
 
-/**
- * @private
- * @template T
- * @param {T} constantValue The constant value the function should always return.
- * @returns {() => T} New constant function which returns the value
- * passed at the creation time.
- */
-const _constFunction = _ => (
-    'undefined' == typeof _
-        ? _voidFunction()
-        : (function(){return _}) // removed spaces for the minimal length
-);
-
-/**
- * @private
- * @returns {() => object} New function which returns a new empty object
- * every time it is called.
- */
-const _voidObjectFunction = () => (
-    (_ => (function(){return _()}))(_voidObject)
-);
-
-/**
- * @private
- * Internal slot of SyntheticObject where the internal state is saved.
- * @type {symbol}
- */
-const _INTERNAL_STATE = Symbol('[[SyntheticObjectState]]');
-const _createProxy = (isFunction, handler) => {
-    const state = _voidObject();
-    const target = isFunction ? _voidFunction() : _voidObject();
-    const internalHandler = _voidObject();
-
-    if (isFunction) {
-        const apply = handler.apply || _voidFunction();
-        internalHandler.apply = (target, thisArgument, argumentsList) => {
-            // [[Call]]
-            return apply(thisArgument, argumentsList);
+    constructor()
+    {
+        const _this = function (...argumentsList) {
+            return 'undefined' == typeof new.target
+                ? _this[_Call](this, argumentsList)
+                : _this[_Construct](argumentsList, new.target);
         };
-        
-        const construct = handler.construct || _voidObjectFunction();
-        internalHandler.construct = (target, argumentsList, newTarget) => {
-            // [[Construct]]
-            const obj = construct(argumentsList, newTarget);
-            if (!obj || 'object' != typeof obj && 'function' != typeof obj) {
-                return _voidObject();
-            }
-            return obj;
-        };
+        Reflect.setPrototypeOf(_this, new.target.prototype);
+        return _this;
     }
 
-    const defineProperty = handler.defineProperty || _constFunction(false);
-    internalHandler.defineProperty = (target, property, descriptor) => {
-        // [[DefineOwnProperty]]
-        if (property == _INTERNAL_STATE) {
-            return false;
-        }
-        if (!descriptor.configurable) {
-            return false;
-        }
-        return !!defineProperty(property, descriptor);
-    };
+    [_Call](thisArgument, argumentsList) {}
+    [_Construct](argumentsList, newTarget) {
+        return Object.create(newTarget.prototype);
+    }
 
-    const deleteProperty = handler.deleteProperty || _constFunction(false);
-    internalHandler.deleteProperty = (target, property) => {
-        // [[Delete]]
-        if (property == _INTERNAL_STATE) {
-            return false;
-        }
-        return !!deleteProperty(property);
-    };
-
-    const get = handler.get || _voidFunction();
-    internalHandler.get = (target, property, receiver) => {
-        // [[Get]]
-        if (property == _INTERNAL_STATE) {
-            return state;
-        }
-        return get(property, receiver);
-    };
-
-    const getOwnPropertyDescriptor = handler.getOwnPropertyDescriptor || _voidFunction();
-    internalHandler.getOwnPropertyDescriptor = (target, property) => {
-        // [[GetOwnProperty]]
-        if (property == _INTERNAL_STATE) {
-            return void 0;
-        }
-
-        const descriptor = getOwnPropertyDescriptor(property);
-        if (!descriptor || 'object' != typeof descriptor || !descriptor.configurable) {
-            return void 0;
-        }
-        try {
-            Reflect.defineProperty({}, property, descriptor);
-        } catch (e) {
-            return void 0;
-        }
-        return descriptor;
-    };
-
-    const getPrototypeOf = handler.getPrototypeOf || _constFunction(null);
-    internalHandler.getPrototypeOf = target => {
-        // [[GetPrototypeOf]]
-        const prototype = getPrototypeOf();
-        return 'object' == typeof prototype ? prototype : null;
-    };
-
-    const has = handler.has || _constFunction(false);
-    internalHandler.has = (target, property) => {
-        // [[HasProperty]]
-        if (property == _INTERNAL_STATE) {
-            return false;
-        }
-        return !!has(property);
-    };
-
-    // [[IsExtensible]]
-    internalHandler.isExtensible = _constFunction(true);
-    
-    const ownKeys = handler.ownKeys || _constFunction([]);
-    internalHandler.ownKeys = target => {
-        // [[OwnPropertyKeys]]
-        return [... ownKeys()].filter(
-            key => ['string', 'symbol'].includes(typeof key) && key != _INTERNAL_STATE
-        );
-    };
-
-    // [[PreventExtensions]]
-    internalHandler.preventExtensions = _constFunction(false);
-
-    const set = handler.set || _constFunction(false);
-    internalHandler.set = (target, property, value, receiver) => {
-        // [[Set]]
-        if (property == _INTERNAL_STATE) {
-            return false;
-        }
-        return !!set(property, value, receiver);
-    };
-
-    const setPrototypeOf = handler.setPrototypeOf || _constFunction(false);
-    internalHandler.setPrototypeOf = (target, prototype) => {
-        // [[SetPrototypeOf]]
-        return !!setPrototypeOf(prototype);
-    };
-
-    const {proxy, revoke} = Proxy.revocable(target, internalHandler);
-    Reflect.defineProperty(state, 'revoke', {value: revoke});
-    Reflect.defineProperty(state, 'data', {value: new Map});
-    return proxy;
+    toString()
+    {
+        return "function anonymous() {\n    [native code]\n}";
+    }
 };
 
-const _synthesizedObjects = new WeakSet;
-/* END PRIVATE SYMBOLS */
-
-/**
- * Fully synthesizes an object's behavior with Proxy. Each produced object can only
- * be configured with its SyntheticObject object.
- * @param {boolean} [isFunction=false] Whether to create a function object.
- */
-const SyntheticObject = class SyntheticObject {
+const Synthesizer = class Synthesizer extends ExtensibleFunction
+{
     constructor(isFunction)
     {
-        const proxy = _createProxy(isFunction, {
+        super();
+        Reflect.defineProperty(this, 'isFunction', {value: !!isFunction});
+        Reflect.defineProperty(this, 'instances', {value: new WeakMap});
+    }
 
+    [ExtensibleFunction.Call]()
+    {
+        throw new TypeError("Constructor called without 'new'");
+    }
+
+    [ExtensibleFunction.Construct](argumentsList, newTarget)
+    {
+        const state = Object.create(null);
+        let revoked = false;
+        Reflect.defineProperty(state, 'revoked', {get: () => revoked});
+        Reflect.defineProperty(state, 'revoke', {value: () => {
+            if (revoked) return;
+            revoke();
+            revoked = true;
+        }});
+        state.locked = false;
+
+        const target = this.isFunction ? function(){} : Object.create(null);
+        const {proxy, revoke} = Proxy.revocable(target, {
+            apply: (target, thisArgument, argumentsList) =>
+                this.apply(proxy, thisArgument, argumentsList),
+
+            construct: (target, argumentsList, newTarget) =>
+                this.construct(proxy, argumentsList, newTarget),
+
+            defineProperty: (target, property, descriptor) =>
+            {
+                if (!descriptor.configurable) {
+                    return false;
+                }
+                if (state.locked) {
+                    return false;
+                }
+                if (descriptor.get || descriptor.set) {
+                    return !!this.defineProperty(proxy, property, descriptor);
+                } else {
+                    return !!this.set(proxy, property, descriptor.value, proxy);
+                }
+            },
+
+            deleteProperty: (target, property) =>
+            {
+                if (state.locked) {
+                    return false;
+                }
+
+                return !!this.deleteProperty(proxy, property);
+            },
+            
+            get: (target, property, receiver) =>
+                this.get(proxy, property, receiver),
+
+            getOwnPropertyDescriptor: (target, property) =>
+            {
+                const descriptor = this.getOwnPropertyDescriptor(proxy, property);
+                if (!descriptor || 'object' != typeof descriptor || !descriptor.configurable) {
+                    return void 0;
+                }
+                try {
+                    Reflect.defineProperty({}, property, descriptor);
+                } catch (e) {
+                    return void 0;
+                }
+                return descriptor;
+            },
+
+            getPrototypeOf: (target) =>
+            {
+                const prototype = this.getPrototypeOf(proxy);
+                return 'object' == typeof prototype || 'function' == typeof prototype
+                    ? prototype
+                    : null;
+            },
+
+            has: (target, property) => !!this.has(proxy, prototype),
+
+            isExtensible: (target) => true,
+
+            ownKeys: (target) => [... this.ownKeys(proxy)].filter(
+                property => 'string' == typeof property || 'symbol' == typeof property
+            ),
+
+            preventExtensions: (target) => false,
+
+            set: (target, property, value, receiver) => {
+                if (state.locked) {
+                    return false;
+                }
+                return !!this.set(proxy, property, value, receiver);
+            },
+
+            setPrototypeOf: (target, value) =>
+            {
+                if (state.locked) {
+                    return false;
+                }
+                if (!value || 'object' == typeof value || 'function' == typeof value) {
+                    return !!this.setPrototypeOf(proxy, value || null);
+                } else {
+                    return false;
+                }
+            }
         });
-        Reflect.defineProperty(this, 'object', {
-            value: proxy,
-            configurable: false,
-            enumerable: false,
-            writable: false,
-        });
-        _synthesizedObjects.add(proxy);
+
+        Reflect.defineProperty(state, 'proxy', {value: proxy});
+        
+        Reflect.defineProperty(state, 'values', {value: new Map});
+
+        this.instances.set(proxy, state);
+        return proxy;
     }
 
-    setSkelton(skelton)
+    [Symbol.hasInstance](aObj)
     {
-
+        return this.instances.has(aObj);
     }
 
-    freeze()
+    getState(proxy)
     {
-        //
-    }
-
-    unfreeze()
-    {
-        //
-    }
-
-    get isFunction()
-    {
-        return 'function' == typeof this.object;
-    }
-    
-    get isRevoked()
-    {
-        return SyntheticObject.isRevoked(this.object);
-    }
-
-    static isInstance(object)
-    {
-        return ['function', 'object'].includes(typeof object)
-            && object
-            && _synthesizedObjects.has(object);
-    }
-
-    static isRevoked(object)
-    {
-        if (!SyntheticObject.isInstance(object)) {
-            throw new TypeError('Not a synthesized object');
+        if (!(proxy instanceof this)) {
+            throw new TypeError('Not an instance');
         }
-        try {
-            return 'object' != typeof object[_INTERNAL_STATE];
-        } catch (err) {
-            return true;
+
+        return this.instances.get(proxy);
+    }
+
+    lock(proxy)
+    {
+        if (!(proxy instanceof this)) {
+            throw new TypeError('Not an instance');
         }
+
+        const state = this.getState(proxy);
+        state.locked = true;
+    }
+
+    unlock(proxy)
+    {
+        if (!(proxy instanceof this)) {
+            throw new TypeError('Not an instance');
+        }
+
+        const state = this.getState(proxy);
+        state.locked = false;
+    }
+
+    revoke(proxy)
+    {
+        if (!(proxy instanceof this)) {
+            throw new TypeError('Not an instance');
+        }
+
+        const state = this.getState(proxy);
+        state.revoke();
+    }
+
+    isRevoked(proxy)
+    {
+        if (!(proxy instanceof this)) {
+            throw new TypeError('Not an instance');
+        }
+
+        const state = this.getState(proxy);
+        return state.revoked;
+    }
+
+    apply(target, thisArgument, argumentsList)
+    {
+        throw new TypeError('Not callable');
+    }
+
+    construct(target, argumentsList, newTarget)
+    {
+        throw new TypeError('Not a constructor');
+    }
+
+    defineProperty(target, property, descriptor)
+    {
+        return false;
+    }
+
+    deleteProperty(target, property)
+    {
+        if (!(proxy instanceof this)) {
+            throw new TypeError('Not an instance');
+        }
+
+        const state = this.getState(proxy);
+        state.values.delete(property);
+        return true;
+    }
+
+    get(target, property, receiver)
+    {
+        if (!(proxy instanceof this)) {
+            throw new TypeError('Not an instance');
+        }
+
+        const state = this.getState(proxy);
+        return state.values.get(property);
+    }
+
+    getOwnPropertyDescriptor(target, property)
+    {
+        return void 0;
+    }
+
+    getPrototypeOf(target)
+    {
+        return null;
+    }
+
+    has(target, property)
+    {
+        if (!(proxy instanceof this)) {
+            throw new TypeError('Not an instance');
+        }
+
+        const state = this.getState(proxy);
+        return state.values.has(property);
+    }
+
+    ownKeys(target)
+    {
+        if (!(proxy instanceof this)) {
+            throw new TypeError('Not an instance');
+        }
+
+        const state = this.getState(proxy);
+        return [... state.values.keys()];
+    }
+
+    set(target, property, value, receiver)
+    {
+        if (!(proxy instanceof this)) {
+            throw new TypeError('Not an instance');
+        }
+
+        const state = this.getState(proxy);
+        if ('undefined' == typeof value) {
+            state.values.delete(property);
+        } else {
+            state.values.set(property, value);
+        }
+        return true;
+    }
+
+    setPrototypeOf(target, value)
+    {
+        return false;
     }
 };
 
-const createSyntheticObject = (isFunction) => {
-    // 
-};

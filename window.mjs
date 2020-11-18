@@ -5,7 +5,6 @@ import '/lib/states.js';
 const GLOBAL_NAME = 'menhera';
 const PLATFORM_UUID = '9001f27a-ff53-4ef9-989f-27446b545b06';
 const STORAGE_PREFIX = 'menhera.';
-const listenerMap = new WeakMap;
 
 const getBroadcastId = topic => STORAGE_PREFIX + 'broadcast.' + topic;
 const getState = new StateStore;
@@ -111,6 +110,7 @@ class Menhera
             topic,
             time: this.getTime(),
             windowId: this.windowId,
+            sessionId: this.sessionId,
             windowCreatedTime: this.windowCreatedTime,
             data,
         });
