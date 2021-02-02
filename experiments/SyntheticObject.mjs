@@ -1,27 +1,32 @@
 
 
-const _Call = Symbol('[[Call]]');
-const _Construct = Symbol('[[Construct]]');
+const SYMBOL_CALL = Symbol('[[Call]]');
+const SYMBOL_CONSTRUCT = Symbol('[[Construct]]');
 
 const ExtensibleFunction = class ExtensibleFunction extends Function
 {
-    static get Call() {return _Call}
-    static get Construct() {return _Construct}
+    static get CALL() {return SYMBOL_CALL}
+    static get CONSTRUCT() {return SYMBOL_CONSTRUCT}
 
     constructor()
     {
         const _this = function (...argumentsList) {
-            return 'undefined' == typeof new.target
-                ? _this[_Call](this, argumentsList)
-                : _this[_Construct](argumentsList, new.target);
+            if ('undefined' == typeof new.target) {
+                if ('function' == typeof _this[SYMBOL_CALL]) {
+                    return _this[SYMBOL_CALL](this, argumentsList);
+                } else if ('function' == typeof _this[SYMBOL_CONSTRUCT]) {
+                    throw new TypeError('Constructor called without \'new\' keyword');
+                } else {
+                    return void 0;
+                }
+            } else if ('function' == typeof _this[SYMBOL_CONSTRUCT]) {
+                return _this[SYMBOL_CONSTRUCT](argumentsList, new.target);
+            } else {
+                throw new TypeError('Not a constructor');
+            }
         };
         Reflect.setPrototypeOf(_this, new.target.prototype);
         return _this;
-    }
-
-    [_Call](thisArgument, argumentsList) {}
-    [_Construct](argumentsList, newTarget) {
-        return Object.create(newTarget.prototype);
     }
 
     toString()
@@ -39,12 +44,12 @@ const Synthesizer = class Synthesizer extends ExtensibleFunction
         Reflect.defineProperty(this, 'instances', {value: new WeakMap});
     }
 
-    [ExtensibleFunction.Call]()
+    [ExtensibleFunction.CALL]()
     {
         throw new TypeError("Constructor called without 'new'");
     }
 
-    [ExtensibleFunction.Construct](argumentsList, newTarget)
+    [ExtensibleFunction.CONSTRUCT](argumentsList, newTarget)
     {
         const state = Object.create(null);
         let revoked = false;

@@ -9,6 +9,7 @@ const STORAGE_PREFIX = 'menhera.';
 const getBroadcastId = topic => STORAGE_PREFIX + 'broadcast.' + topic;
 const getState = new StateStore;
 
+
 class Menhera
 {
     constructor(ownerWindow)
@@ -169,12 +170,12 @@ class Menhera
             return 57;
         }
 
-        return this.id;
+        return this.windowId;
     }
 
     static [Symbol.hasInstance](obj)
     {
-        return 'object' == typeof obj && obj.PLATFORM_UUID === PLATFORM_UUID;
+        return 'object' == typeof obj && null !== obj && obj.PLATFORM_UUID === PLATFORM_UUID;
     }
 }
 
