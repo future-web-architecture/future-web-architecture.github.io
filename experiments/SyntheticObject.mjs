@@ -44,11 +44,6 @@ const Synthesizer = class Synthesizer extends ExtensibleFunction
         Reflect.defineProperty(this, 'instances', {value: new WeakMap});
     }
 
-    [ExtensibleFunction.CALL]()
-    {
-        throw new TypeError("Constructor called without 'new'");
-    }
-
     [ExtensibleFunction.CONSTRUCT](argumentsList, newTarget)
     {
         const state = Object.create(null);
